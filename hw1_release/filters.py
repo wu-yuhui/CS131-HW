@@ -18,9 +18,18 @@ def conv_nested(image, kernel):
     Hi, Wi = image.shape
     Hk, Wk = kernel.shape
     out = np.zeros((Hi, Wi))
-
+    
     ### YOUR CODE HERE
-    pass
+    
+    # Assume kernel is ODD_Number* ODD_Number
+    pad_H, pad_W = Hk//2, Wk//2
+    for hi in range(pad_H, Hi-pad_H):
+        for wi in range(pad_W, Wi-pad_W):
+            for hk in range(Hk):
+                for wk in range(Wk): 
+                    # m: hi+pad_H, n: wi+pad_W (no padding) i: [-pad_H, pad_H] j:[-pad_W, pad_W]
+                    # g[m, n] = k[i, j] * i[m-i, n-j]
+                    out[hi, wi] += kernel[hk, wk] * image[hi-(hk-pad_H), wi-(wk-pad_W)]
     ### END YOUR CODE
 
     return out
@@ -47,7 +56,8 @@ def zero_pad(image, pad_height, pad_width):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    out = np.zeros([H+2*pad_height, W+2*pad_width])
+    out[pad_height:pad_height+H, pad_width:pad_width+W] = image
     ### END YOUR CODE
     return out
 
@@ -76,9 +86,23 @@ def conv_fast(image, kernel):
     out = np.zeros((Hi, Wi))
 
     ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    pad_H, pad_W = Hk//2, Wk//2 
+    pad_img = zero_pad(image, pad_H, pad_W)
+    
+    print(image.shape)
+    print(pad_img.shape)
+    print(kernel.shape)
+    
+    conv_kernel = np.flip(np.flip(kernel,0),1)
 
+    for m in range(Hi):
+        for n in range(Wi):
+            out[m, n] = np.sum(kernel * pad_img[m:m+Hk, n:n+Wk])
+            
+    #for m in range(pad_H, Hi-pad_H):
+    #    for n in range(pad_W, Wi-pad_W):
+    #        out[m, n] = np.sum(kernel * pad_img[m:m+Hk, n:n+Wk])
+    ### END YOUR CODE
     return out
 
 def conv_faster(image, kernel):
@@ -115,7 +139,8 @@ def cross_correlation(f, g):
 
     out = None
     ### YOUR CODE HERE
-    pass
+    cross_kernel = np.flip(np.flip(g, axis=0), axis=1)
+    out = conv_fast(f, cross_kernel)
     ### END YOUR CODE
 
     return out
@@ -135,7 +160,9 @@ def zero_mean_cross_correlation(f, g):
 
     out = None
     ### YOUR CODE HERE
-    pass
+    g_mean = np.mean(g)
+    new_g = g - g_mean
+    out = cross_correlation(f, new_g)
     ### END YOUR CODE
 
     return out
