@@ -23,15 +23,16 @@ def conv_nested(image, kernel):
     
     # Assume kernel is ODD_Number* ODD_Number
     pad_H, pad_W = Hk//2, Wk//2
-    for hi in range(pad_H, Hi-pad_H):
-        for wi in range(pad_W, Wi-pad_W):
-            for hk in range(Hk):
-                for wk in range(Wk): 
-                    # m: hi+pad_H, n: wi+pad_W (no padding) i: [-pad_H, pad_H] j:[-pad_W, pad_W]
-                    # g[m, n] = k[i, j] * i[m-i, n-j]
-                    out[hi, wi] += kernel[hk, wk] * image[hi-(hk-pad_H), wi-(wk-pad_W)]
+    for hi in range(Hi):
+        for wi in range(Wi):
+            for hk in range(-pad_H, pad_H+1):
+                for wk in range(-pad_W, pad_W+1): 
+                    # Be careful boundaries !!!
+                    if hi-hk >= 0 and hi-hk < Hi and wi-wk >= 0 and wi-wk < Wi:
+                        # g[m, n] = k[i, j] * i[m-i, n-j]
+                        out[hi, wi] += kernel[hk+pad_H, wk+pad_W] * image[hi-hk, wi-wk]
     ### END YOUR CODE
-
+    
     return out
 
 def zero_pad(image, pad_height, pad_width):
@@ -89,20 +90,16 @@ def conv_fast(image, kernel):
     pad_H, pad_W = Hk//2, Wk//2 
     pad_img = zero_pad(image, pad_H, pad_W)
     
-    print(image.shape)
-    print(pad_img.shape)
-    print(kernel.shape)
+    conv_kernel = np.flip(np.flip(kernel,axis=0),axis=1)
     
-    conv_kernel = np.flip(np.flip(kernel,0),1)
-
-    for m in range(Hi):
-        for n in range(Wi):
-            out[m, n] = np.sum(kernel * pad_img[m:m+Hk, n:n+Wk])
-            
     #for m in range(pad_H, Hi-pad_H):
     #    for n in range(pad_W, Wi-pad_W):
-    #        out[m, n] = np.sum(kernel * pad_img[m:m+Hk, n:n+Wk])
-    ### END YOUR CODE
+    #        out[m, n] = np.sum(conv_kernel * pad_img[m:m+Hk, n:n+Wk])
+            
+    for m in range(Hi):
+        for n in range(Wi):
+            out[m, n] = np.sum(conv_kernel * pad_img[m:m+Hk, n:n+Wk])
+            
     return out
 
 def conv_faster(image, kernel):
@@ -183,7 +180,22 @@ def normalized_cross_correlation(f, g):
 
     out = None
     ### YOUR CODE HERE
-    pass
+    g_mean, g_std = np.mean(g), np.std(g)
+    normal_kernel = (g-g_mean)/g_std
+    
+    Hf, Wf = f.shape
+    Hg, Wg = g.shape
+    out = np.zeros((Hf, Wf))
+
+    pad_H, pad_W = Hg//2, Wg//2 
+    pad_img = zero_pad(f, pad_H, pad_W)
+               
+    for m in range(Hf):
+        for n in range(Wf):
+            image_patch = pad_img[m:m+Hg, n:n+Wg]
+            f_mean, f_std = np.mean(image_patch), np.std(image_patch) 
+            out[m, n] = np.sum(normal_kernel * (image_patch-f_mean)/f_std )
+          
     ### END YOUR CODE
 
     return out
