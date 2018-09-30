@@ -24,10 +24,14 @@ def conv(image, kernel):
     pad_width0 = Hk // 2
     pad_width1 = Wk // 2
     pad_width = ((pad_width0,pad_width0),(pad_width1,pad_width1))
-    padded = np.pad(image, pad_width, mode='edge')
+    padded = np.pad(image, pad_width, mode='edge') # pad with edge values
 
     ### YOUR CODE HERE
-    pass
+    conv_kernel = np.flip(np.flip(kernel, axis=0), axis=1)
+    
+    for m in range(Hi):
+        for n in range(Wi):
+            out[m, n] = np.sum(conv_kernel * padded[m:m+Hk, n:n+Wk])
     ### END YOUR CODE
 
     return out
@@ -52,7 +56,16 @@ def gaussian_kernel(size, sigma):
     kernel = np.zeros((size, size))
 
     ### YOUR CODE HERE
-    pass
+    
+    # i, j is in [0, 2k]
+    k = size//2
+    param = 1 / (2 * np.pi * np.square(sigma))
+    exp_denom = -2 * np.square(sigma)
+    
+    for i in range(size):
+        for j in range(size):
+            kernel[i, j] = param * np.exp( (np.square(i-k) + np.square(j-k)) / exp_denom )
+    
     ### END YOUR CODE
 
     return kernel
@@ -72,7 +85,9 @@ def partial_x(img):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    x_kernel = np.array([[1, 0, -1]])
+    x_kernel = x_kernel / 2
+    out = conv(img, x_kernel)
     ### END YOUR CODE
 
     return out
@@ -92,7 +107,9 @@ def partial_y(img):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    y_kernel = np.array([[1, 0, -1]]).reshape(3,1)
+    y_kernel = y_kernel / 2
+    out = conv(img, y_kernel)
     ### END YOUR CODE
 
     return out
@@ -113,7 +130,12 @@ def gradient(img):
     theta = np.zeros(img.shape)
 
     ### YOUR CODE HERE
-    pass
+    G_x = partial_x(img)
+    G_y = partial_y(img)
+    
+    G = np.sqrt(np.square(G_x) + np.square(G_y))
+    theta = (np.arctan2(G_x, G_y) % (2 * np.pi)) / np.pi * 180
+    
     ### END YOUR CODE
 
     return G, theta
@@ -139,7 +161,55 @@ def non_maximum_suppression(G, theta):
     theta = np.floor((theta + 22.5) / 45) * 45
 
     ### BEGIN YOUR CODE
-    pass
+    
+    # Deal with edge & corner cases (out of bounds problem)
+    
+    G_pad = np.pad(G, 1, mode='constant', constant_values=0)
+    
+    # 0   & 180: (W-1,H)   (W,H) (W+1,H)
+    # 45  & 225: (W-1,H-1) (W,H) (W+1,H+1)
+    # 90  & 270: (W  ,H-1) (W,H) (W  ,H+1)
+    # 135 & 315: (W-1,H+1) (W,H) (W+1,H-1)
+    
+    
+    for h in range(1, H+1):
+        for w in range(1, W+1):
+            if theta[h-1, w-1] % 180 == 0:
+                neighbors = [G_pad[h, w-1],   G_pad[h, w+1]]
+            elif theta[h-1, w-1] % 180 == 45:
+                neighbors = [G_pad[h-1, w-1], G_pad[h+1, w+1]]
+            elif theta[h-1, w-1] % 180 == 90:
+                neighbors = [G_pad[h-1, w],   G_pad[h+1, w]] 
+            elif theta[h-1, w-1] % 180 == 135:
+                neighbors = [G_pad[h+1, w-1], G_pad[h-1, w+1]] 
+            else:
+                print("theta at (", h , " ," , w ,") is not rounded to multiple of 45. Please check!")
+            if G_pad[h, w] >= np.max(neighbors):
+                out[h-1, w-1] = G_pad[h,w]
+            else:
+                out[h-1, w-1] = 0
+    '''
+    
+    theta = theta%360
+    print(theta)
+    for i in range(1, H-1):
+        for j in range(1,W-1):
+            current_angle = theta[i,j]
+            if current_angle == 0 or current_angle == 180:
+                neighbors = [G[i, j-1], G[i, j+1]]
+            elif current_angle == 45 or current_angle == 225:
+                neighbors = [G[i-1, j-1], G[i+1, j+1]]
+            elif current_angle == 90 or current_angle == 270:
+                neighbors = [G[i-1, j], G[i+1, j]]
+            elif current_angle == 135 or current_angle == 315:
+                neighbors = [G[i-1, j+1], G[i+1, j-1]]
+            else:
+                raise RuntimeError("Wrong theta value {}- should be one of the following[0,45,90,135,180,225,270,315]".format(current_angle))
+            if G[i,j] >= np.max(neighbors):
+                out[i,j] = G[i,j]
+            else:
+                out[i, j] = 0
+    '''
     ### END YOUR CODE
 
     return out
@@ -164,7 +234,17 @@ def double_thresholding(img, high, low):
     weak_edges = np.zeros(img.shape)
 
     ### YOUR CODE HERE
-    pass
+    for h in range(img.shape[0]):
+        for w in range(img.shape[1]):
+            if img[h, w] > high:
+                strong_edges[h, w] = img[h, w]
+    
+    for h in range(img.shape[0]):
+        for w in range(img.shape[1]):
+            if img[h, w] > low:
+                weak_edges[h, w] = img[h, w]
+    weak_edges = weak_edges - strong_edges
+    
     ### END YOUR CODE
 
     return strong_edges, weak_edges
